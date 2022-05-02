@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿#if UNITY_EDITOR
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.Animations;
@@ -25,7 +26,7 @@ public class AnimCreator : EditorWindow
     List<AnimationPair> _animationPairList = new List<AnimationPair>();
 
 
-    [MenuItem("Tools/AnimCreator")]
+    [MenuItem("Tools/Arsenicu/AnimCreator")]
     static void Init()
     {
         AnimCreator window = (AnimCreator)EditorWindow.GetWindow(typeof(AnimCreator));
@@ -287,10 +288,29 @@ public class AnimCreator : EditorWindow
                 controller.layers[i].stateMachine.AddState(stateOn, new Vector3(300, 30, 0));
             }
 
+            stateOn.hideFlags = HideFlags.HideInHierarchy;
+            stateOff.hideFlags = HideFlags.HideInHierarchy;
+            transitionOn.hideFlags = HideFlags.HideInHierarchy;
+            transitionOff.hideFlags = HideFlags.HideInHierarchy;
+            controller.layers[i].stateMachine.hideFlags = HideFlags.HideInHierarchy;
+
+
+            AssetDatabase.AddObjectToAsset(transitionOn, controller);
+            AssetDatabase.AddObjectToAsset(transitionOff, controller);
+
+            AssetDatabase.AddObjectToAsset(stateOn, controller);
+            AssetDatabase.AddObjectToAsset(stateOff, controller);
+
+            AssetDatabase.AddObjectToAsset(controller.layers[i].stateMachine, controller);
+
+            //not sure if this is neccesary but here it is
+            AssetDatabase.SaveAssets();
+            AssetDatabase.ImportAsset(AssetDatabase.GetAssetPath(controller));
+
         }
 
-        //not sure if this is neccesary but here it is
-        AssetDatabase.SaveAssets();
+
+
     }
 
 }
@@ -308,3 +328,4 @@ public static class EFile
         return false;
     }
 }
+#endif
