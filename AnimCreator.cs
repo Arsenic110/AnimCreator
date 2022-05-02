@@ -9,323 +9,324 @@ using System;
 
 public class AnimCreator : EditorWindow
 {
-    GameObject _parent;
-    GameObject _animated;
+	GameObject _parent;
+	AnimatorController _existingAnimator;
 
-    AnimatorController _exisitngAnimator;
+	int _animationsIndex = 0, _previousAnimationsIndex = 0;
+	bool _foldoutStatus = true, _defaultAnimationType = false, _useExistingAnimator = false;
 
-    int _animationsIndex = 0, _previousAnimationsIndex = 0;
-    bool _foldoutStatus = true, _defaultAnimationType = false, _useExistingAnimator = false;
+	string _path = "Assets/Main/Generated Animations/";
 
-    string _path = "Assets/Main/Generated Animations/";
+	GameObject[] animationComponents;
 
-    GameObject[] animationComponents;
-
-    struct AnimationPair { public AnimationMetadata On; public AnimationMetadata Off; }
-    struct AnimationMetadata { public string name; public AnimationClip clip; }
-    List<AnimationPair> _animationPairList = new List<AnimationPair>();
+	struct AnimationPair { public AnimationMetadata On; public AnimationMetadata Off; }
+	struct AnimationMetadata { public string name; public AnimationClip clip; }
+	List<AnimationPair> _animationPairList = new List<AnimationPair>();
 
 
-    [MenuItem("Tools/Arsenicu/AnimCreator")]
-    static void Init()
-    {
-        AnimCreator window = (AnimCreator)EditorWindow.GetWindow(typeof(AnimCreator));
-        window.Show();
-    }
+	[MenuItem("Tools/Arsenicu/AnimCreator")]
+	static void Init()
+	{
+		AnimCreator window = (AnimCreator)EditorWindow.GetWindow(typeof(AnimCreator));
+		window.Show();
+	}
 
-    void OnGUI()
-    {
-        //haha lol lmao xd
-        #pragma warning disable CS0618
-        #pragma warning disable CS0168
+	void OnGUI()
+	{
+		//haha lol lmao xd
+#pragma warning disable CS0618
+#pragma warning disable CS0168
 
-        GUILayout.Label("Parent is the GameObject with the animator.");
-        
-        //we only ever need one parent for these animations
-        _parent = (GameObject)EditorGUILayout.ObjectField("Parent: ", _parent, typeof(GameObject));
+		GUILayout.Label("Parent is the GameObject with the animator.");
 
-        if(GUILayout.Button("Open folder dialog"))
-        {
-            _path = EditorUtility.OpenFolderPanel("Pick destination folder", "", "");
+		//we only ever need one parent for these animations
+		_parent = (GameObject)EditorGUILayout.ObjectField(new GUIContent("Parent: ", "Root object of the animated target."), _parent, typeof(GameObject));
 
-            //so we need to convert the full path with driveletter into unity-relative terms
-            string[] split = _path.Split('/');
-            StringBuilder sb = new StringBuilder();
-            //haha this is cancer but its how i know how to do things
-            bool rootFound = false;
-            for(int i = 0; i < split.Length; i++)
-            {
-                if(split[i] == "Assets")
-                    rootFound = true;
-                if (rootFound)
-                {
-                    sb.Append(split[i]);
-                    sb.Append("/");
-                }
-            }
+		if (GUILayout.Button("Open folder dialog"))
+		{
+			_path = EditorUtility.OpenFolderPanel("Pick destination folder", "", "");
 
-            //dont be a troll and select some location outside of the assetfolder
-            if(!rootFound)
-                throw new Exception();
-            _path = sb.ToString();
-        }
+			//so we need to convert the full path with driveletter into unity-relative terms
+			string[] split = _path.Split('/');
+			StringBuilder sb = new StringBuilder();
+			//haha this is cancer but its how i know how to do things
+			bool rootFound = false;
+			for (int i = 0; i < split.Length; i++)
+			{
+				if (split[i] == "Assets")
+					rootFound = true;
+				if (rootFound)
+				{
+					sb.Append(split[i]);
+					sb.Append("/");
+				}
+			}
 
-        //check if the user wants to use their own custom animator
-        _useExistingAnimator = EditorGUILayout.Toggle("Use Existing Animator?", _useExistingAnimator);
-        if(_useExistingAnimator)
-            _exisitngAnimator = (AnimatorController)EditorGUILayout.ObjectField("Animator: ", _exisitngAnimator, typeof(AnimatorController));
+			//dont be a troll and select some location outside of the assetfolder
+			if (!rootFound)
+				throw new Exception();
+			_path = sb.ToString();
+		}
 
-        //amount of animated children
-        _animationsIndex = EditorGUILayout.IntField("Amount:", _animationsIndex);
+		//check if the user wants to use their own custom animator
+		_useExistingAnimator = EditorGUILayout.Toggle(new GUIContent("Use Existing Animator?", "Adds new animations/layer to given Animator."), _useExistingAnimator);
+		if (_useExistingAnimator)
+			_existingAnimator = (AnimatorController)EditorGUILayout.ObjectField(new GUIContent("Animator: ", "Enter existing Animator here."), _existingAnimator, typeof(AnimatorController));
 
-        //check if the index changed since last frame
-        if(_animationsIndex != _previousAnimationsIndex)
-        {
-            //there is a change from the last frame. we have to mutate the array - 
+		//amount of animated children
+		_animationsIndex = EditorGUILayout.IntField(new GUIContent("Amount:", "Amount of objects to generate animations for."), _animationsIndex);
 
-            //quick n dirty. make a temporray with the new size
-            GameObject[] tempArray = new GameObject[_animationsIndex];
+		//check if the index changed since last frame
+		if (_animationsIndex != _previousAnimationsIndex)
+		{
+			//there is a change from the last frame. we have to mutate the array - 
 
-            //if its null we dont want to copy anything
-            if(animationComponents != null)
-            {
-                for(int i = 0; i < Math.Min(animationComponents.Length, _animationsIndex) ; i++)
-                {//copy everything over from the old one without writing to it
-                    try
-                    {
-                        tempArray[i] = animationComponents[i];
-                    }
-                    catch(IndexOutOfRangeException e)
-                    {
-                        break;
-                    }
-                }
-            }
+			//quick n dirty. make a temporray with the new size
+			GameObject[] tempArray = new GameObject[_animationsIndex];
 
-            //assign the new one as the old one so we dont have to rename anything
-            animationComponents = tempArray;
-            //dont forget to update _previousAnimationsIndex!
-            _previousAnimationsIndex = _animationsIndex;
-        }
+			//if its null we dont want to copy anything
+			if (animationComponents != null)
+			{
+				for (int i = 0; i < Math.Min(animationComponents.Length, _animationsIndex); i++)
+				{//copy everything over from the old one without writing to it
+					try
+					{
+						tempArray[i] = animationComponents[i];
+					}
+					catch (IndexOutOfRangeException e)
+					{
+						break;
+					}
+				}
+			}
 
-        //logic for toggling the foldout
-        _foldoutStatus = EditorGUILayout.BeginFoldoutHeaderGroup(_foldoutStatus, "Stuff");
+			//assign the new one as the old one so we dont have to rename anything
+			animationComponents = tempArray;
+			//dont forget to update _previousAnimationsIndex!
+			_previousAnimationsIndex = _animationsIndex;
+		}
 
-        if(_foldoutStatus)
-        {
-            for(int i = 0; i < _animationsIndex; i++)
-            {
-                animationComponents[i] = (GameObject)EditorGUILayout.ObjectField("Object to animate: ", animationComponents[i], typeof(GameObject));
-            }
-        }
+		//logic for toggling the foldout
+		_foldoutStatus = EditorGUILayout.BeginFoldoutHeaderGroup(_foldoutStatus, "Stuff");
 
-        EditorGUILayout.EndFoldoutHeaderGroup();
+		if (_foldoutStatus)
+		{
+			for (int i = 0; i < _animationsIndex; i++)
+			{
+				animationComponents[i] = (GameObject)EditorGUILayout.ObjectField("Object to animate: ", animationComponents[i], typeof(GameObject));
+			}
+		}
 
-        _defaultAnimationType = EditorGUILayout.Toggle("Default animation On?", _defaultAnimationType);
-        
-        if(GUILayout.Button("Animate!"))
-        {
-            _animationPairList.Clear();
-            for(int i = 0; i < _animationsIndex; i++)
-            {
-                Animate(animationComponents[i]);
-            }
-            CreateAnimator();
-        }
-    }
+		EditorGUILayout.EndFoldoutHeaderGroup();
 
-    void Animate(GameObject _animated)
-    {
+		_defaultAnimationType = EditorGUILayout.Toggle(new GUIContent("Default animation On?", "On=Visible Off=Invisible by default"), _defaultAnimationType);
 
-        //ensure both are filled in
-        if(!_parent || !_animated)
-            return;
+		if (GUILayout.Button("Animate!"))
+		{
+			//Checking if the file path exists, creating a default if none present
+			if (!AssetDatabase.IsValidFolder(_path))
+			{
+				EditorUtility.DisplayDialog("Uh oh! Stinky!", string.Format("No valid file path set!\nPath: {0}\nCreating a default directory for you!", _path), "ok");
+				Directory.CreateDirectory(_path);
+			}
+			_animationPairList.Clear();
+			for (int i = 0; i < _animationsIndex; i++)
+			{
+				Animate(animationComponents[i]);
+			}
+			CreateAnimator();
+		}
+	}
 
-        //check if _animated is a child of _parent
-        Transform[] bruh = _parent.GetComponentsInChildren<Transform>();
+	void Animate(GameObject _animated)
+	{
 
-        bool childFound = false;
+		//ensure both are filled in
+		if (!_parent || !_animated)
+			return;
 
-        foreach(Transform child in bruh)
-            if(child == _animated.transform)
-            {
-                childFound = true;
-            }
+		//check if _animated is a child of _parent
+		Transform[] bruh = _parent.GetComponentsInChildren<Transform>();
 
-        //leave if if its not
-        if(!childFound)
-        {
-            Debug.Log("Child Not found!");
-            return;
-        }
+		bool childFound = false;
 
-        //create a relative hierarchy path
-        GameObject currentGameObject = _animated;
-        List<string> stringList = new List<string>();
+		foreach (Transform child in bruh)
+			if (child == _animated.transform)
+			{
+				childFound = true;
+			}
 
-        while(currentGameObject != _parent)
-        {
-            stringList.Add(currentGameObject.name);
-            currentGameObject = currentGameObject.transform.parent.gameObject;
-        }
+		//leave if if its not
+		if (!childFound)
+		{
+			Debug.Log("Child Not found!");
+			return;
+		}
 
-        string[] hierarchyArray = stringList.ToArray();
-        StringBuilder sb = new StringBuilder();
+		//create a relative hierarchy path
+		GameObject currentGameObject = _animated;
+		List<string> stringList = new List<string>();
 
-        //reverse it for correct formatting
-        for(int i = hierarchyArray.Length - 1; i >= 0; i--)
-        {
-            sb.Append(hierarchyArray[i]);
-            if(i > 0)
-            sb.Append("/");
-        }
+		while (currentGameObject != _parent)
+		{
+			stringList.Add(currentGameObject.name);
+			currentGameObject = currentGameObject.transform.parent.gameObject;
+		}
 
-        AnimationClip onAnim = new AnimationClip();
-        onAnim.SetCurve(sb.ToString(), typeof(GameObject), "m_IsActive", AnimationCurve.Constant(0, 0, 1));
+		string[] hierarchyArray = stringList.ToArray();
+		StringBuilder sb = new StringBuilder();
 
-        AnimationClip offAnim = new AnimationClip();
-        offAnim.SetCurve(sb.ToString(), typeof(GameObject), "m_IsActive", AnimationCurve.Constant(0, 0, 0));
+		//reverse it for correct formatting
+		for (int i = hierarchyArray.Length - 1; i >= 0; i--)
+		{
+			sb.Append(hierarchyArray[i]);
+			if (i > 0)
+				sb.Append("/");
+		}
 
-        //check if directory exists
-        if(!AssetDatabase.IsValidFolder(_path))
-            Directory.CreateDirectory(_path);
+		AnimationClip onAnim = new AnimationClip();
+		onAnim.SetCurve(sb.ToString(), typeof(GameObject), "m_IsActive", AnimationCurve.Constant(0, 0, 1));
 
-        //overwrite previous assets with the same name - potentially dangerous, but this is my preferred default behavior
-        EFile.DeleteIfExists(_path + _animated.name + " On.anim");
-        EFile.DeleteIfExists(_path + _animated.name + " Off.anim");
+		AnimationClip offAnim = new AnimationClip();
+		offAnim.SetCurve(sb.ToString(), typeof(GameObject), "m_IsActive", AnimationCurve.Constant(0, 0, 0));
 
-        AssetDatabase.CreateAsset(onAnim, _path + _animated.name + " On.anim");
-        AssetDatabase.CreateAsset(offAnim, _path + _animated.name + " Off.anim");
+		//check if directory exists
+		if (!AssetDatabase.IsValidFolder(_path))
+			Directory.CreateDirectory(_path);
 
-        //this is a yikes but im lazy
-        AnimationPair temp;
-        AnimationMetadata on;
-        AnimationMetadata off;
-        on.name = _animated.name;
-        off.name = _animated.name;
-        on.clip = onAnim;
-        off.clip = offAnim;
-        temp.On = on;
-        temp.Off = off;
-        _animationPairList.Add(temp);
+		//overwrite previous assets with the same name - potentially dangerous, but this is my preferred default behavior
+		EFile.DeleteIfExists(_path + _animated.name + " On.anim");
+		EFile.DeleteIfExists(_path + _animated.name + " Off.anim");
 
-        //Debug.Log($"Created animations: '{onAnim.ToString()}' and '{offAnim.ToString()}'");
-    }
+		AssetDatabase.CreateAsset(onAnim, _path + _animated.name + " On.anim");
+		AssetDatabase.CreateAsset(offAnim, _path + _animated.name + " Off.anim");
 
-    void CreateAnimator()
-    {
-        AnimatorController controller;
-        //check if there's a loaded animator - if yes, we want to use the loaded one
-        if(_exisitngAnimator == null)
-        {
-            EFile.DeleteIfExists(_path + "generated controller.controller");
-            controller = UnityEditor.Animations.AnimatorController.CreateAnimatorControllerAtPath(_path + "generated controller.controller");
-        }
-        else
-        {
-            controller = _exisitngAnimator;
-        }
+		//this is a yikes but im lazy
+		AnimationPair temp;
+		AnimationMetadata on;
+		AnimationMetadata off;
+		on.name = _animated.name;
+		off.name = _animated.name;
+		on.clip = onAnim;
+		off.clip = offAnim;
+		temp.On = on;
+		temp.Off = off;
+		_animationPairList.Add(temp);
 
-        //This will actually load in the animator if it already exists. We need to make sure it doesnt do that, because Im lazy and this is MY tool.
+		//Debug.Log($"Created animations: '{onAnim.ToString()}' and '{offAnim.ToString()}'");
+	}
 
-        //phases: 
-        //1. add bool parameters for each animation pair
-        //2. add layer for each pair
-        //3. set up statemachines & transitions for each pair
+	void CreateAnimator()
+	{
+		AnimatorController controller;
 
-        AnimationPair[] pairs = _animationPairList.ToArray();
-        
-        //check if the animator is new or not - used for accounting for pre-exisitng layer indexes
-        int offset = 1;
-        if(controller.layers.Length > 1)
-            offset = controller.layers.Length;
+		//check if there's a loaded animator - if yes, we want to use the loaded one
+		if (_existingAnimator == null)
+		{
+			EFile.DeleteIfExists(_path + "generated controller.controller");
 
-        for(int i = 0; i < pairs.Length; i++)
-        {
-            //make sure that the name is unique
-            string uniquename = controller.MakeUniqueParameterName(pairs[i].On.name);
-            //and that we use the unique name from now on 
-            pairs[i].On.name = uniquename;
-            pairs[i].Off.name = uniquename;
+			controller = UnityEditor.Animations.AnimatorController.CreateAnimatorControllerAtPath(_path + "generated controller.controller");
+		}
+		else
+		{
+			controller = _existingAnimator;
+		}
+		//This will actually load in the animator if it already exists. We need to make sure it doesnt do that, because Im lazy and this is MY tool.
 
-            controller.AddParameter(uniquename, AnimatorControllerParameterType.Bool);
+		//phases: 
+		//1. add bool parameters for each animation pair
+		//2. add layer for each pair
+		//3. set up statemachines & transitions for each pair
 
-            //we need to instantiate the layer like this to ensure that the settings are set correctly.
-            AnimatorControllerLayer templayer = new AnimatorControllerLayer
-            {
-                name = pairs[i].On.name,
-                defaultWeight = 1.0f,
-                stateMachine = new AnimatorStateMachine(),
-            };
-            controller.AddLayer(templayer);
-        }
+		AnimationPair[] pairs = _animationPairList.ToArray();
 
+		//check if the animator is new or not - used for accounting for pre-exisitng layer indexes
+		int offset = 1;
+		if (controller.layers.Length > 1)
+			offset = controller.layers.Length;
 
+		for (int i = 0; i < pairs.Length; i++)
+		{
+			//make sure that the name is unique
+			string uniqueName = controller.MakeUniqueParameterName(pairs[i].On.name);
+			//and that we use the unique name from now on 
+			pairs[i].On.name = uniqueName;
+			pairs[i].Off.name = uniqueName;
 
-        for(int i = offset; i < controller.layers.Length; i++)
-        {//i = 1 to skip base layer
+			controller.AddParameter(uniqueName, AnimatorControllerParameterType.Bool);
 
-            //create the states
-            AnimatorState stateOn = new AnimatorState { motion = pairs[i - offset].On.clip, name = pairs[i - offset].On.name + " On" };
-            AnimatorState stateOff = new AnimatorState { motion = pairs[i - offset].Off.clip, name = pairs[i - offset].Off.name + " Off" };
+			//we need to instantiate the layer like this to ensure that the settings are set correctly.
+			AnimatorControllerLayer templayer = new AnimatorControllerLayer
+			{
+				name = pairs[i].On.name,
+				defaultWeight = 1.0f,
+				stateMachine = new AnimatorStateMachine(),
+			};
+			controller.AddLayer(templayer);
+		}
 
-            //create the animator state transitions
-            AnimatorStateTransition transitionOn = new AnimatorStateTransition { destinationState = stateOn, conditions = new AnimatorCondition[] { new AnimatorCondition { mode = AnimatorConditionMode.If, parameter = pairs[i - offset].On.name}}};
-            AnimatorStateTransition transitionOff = new AnimatorStateTransition { destinationState = stateOff, conditions = new AnimatorCondition[] { new AnimatorCondition { mode = AnimatorConditionMode.IfNot, parameter = pairs[i - offset].Off.name}}};
+		for (int i = offset; i < controller.layers.Length; i++)
+		{//i = 1 to skip base layer
 
-            //add the new transitiots to the 'anystate' node
-            controller.layers[i].stateMachine.anyStateTransitions = new AnimatorStateTransition[] { transitionOn, transitionOff };
+			//create the states
+			AnimatorState stateOn = new AnimatorState { motion = pairs[i - offset].On.clip, name = pairs[i - offset].On.name + " On" };
+			AnimatorState stateOff = new AnimatorState { motion = pairs[i - offset].Off.clip, name = pairs[i - offset].Off.name + " Off" };
 
-            //default types - for when you want something off by default, or on by default!
-            if(_defaultAnimationType)
-            {
-                controller.layers[i].stateMachine.AddState(stateOn, new Vector3(300, 110, 0));
-                controller.layers[i].stateMachine.AddState(stateOff, new Vector3(300, 30, 0));
-            }
-            else
-            {
-                controller.layers[i].stateMachine.AddState(stateOff, new Vector3(300, 110, 0));
-                controller.layers[i].stateMachine.AddState(stateOn, new Vector3(300, 30, 0));
-            }
+			//create the animator state transitions
+			AnimatorStateTransition transitionOn = new AnimatorStateTransition { destinationState = stateOn, conditions = new AnimatorCondition[] { new AnimatorCondition { mode = AnimatorConditionMode.If, parameter = pairs[i - offset].On.name } } };
+			AnimatorStateTransition transitionOff = new AnimatorStateTransition { destinationState = stateOff, conditions = new AnimatorCondition[] { new AnimatorCondition { mode = AnimatorConditionMode.IfNot, parameter = pairs[i - offset].Off.name } } };
 
-            stateOn.hideFlags = HideFlags.HideInHierarchy;
-            stateOff.hideFlags = HideFlags.HideInHierarchy;
-            transitionOn.hideFlags = HideFlags.HideInHierarchy;
-            transitionOff.hideFlags = HideFlags.HideInHierarchy;
-            controller.layers[i].stateMachine.hideFlags = HideFlags.HideInHierarchy;
+			//add the new transitiots to the 'anystate' node
+			controller.layers[i].stateMachine.anyStateTransitions = new AnimatorStateTransition[] { transitionOn, transitionOff };
 
+			//default types - for when you want something off by default, or on by default!
+			if (_defaultAnimationType)
+			{
+				controller.layers[i].stateMachine.AddState(stateOn, new Vector3(300, 110, 0));
+				controller.layers[i].stateMachine.AddState(stateOff, new Vector3(300, 30, 0));
+			}
+			else
+			{
+				controller.layers[i].stateMachine.AddState(stateOff, new Vector3(300, 110, 0));
+				controller.layers[i].stateMachine.AddState(stateOn, new Vector3(300, 30, 0));
+			}
 
-            AssetDatabase.AddObjectToAsset(transitionOn, controller);
-            AssetDatabase.AddObjectToAsset(transitionOff, controller);
-
-            AssetDatabase.AddObjectToAsset(stateOn, controller);
-            AssetDatabase.AddObjectToAsset(stateOff, controller);
-
-            AssetDatabase.AddObjectToAsset(controller.layers[i].stateMachine, controller);
-
-            //not sure if this is neccesary but here it is
-            AssetDatabase.SaveAssets();
-            AssetDatabase.ImportAsset(AssetDatabase.GetAssetPath(controller));
-
-        }
+			stateOn.hideFlags = HideFlags.HideInHierarchy;
+			stateOff.hideFlags = HideFlags.HideInHierarchy;
+			transitionOn.hideFlags = HideFlags.HideInHierarchy;
+			transitionOff.hideFlags = HideFlags.HideInHierarchy;
+			controller.layers[i].stateMachine.hideFlags = HideFlags.HideInHierarchy;
 
 
+			AssetDatabase.AddObjectToAsset(transitionOn, controller);
+			AssetDatabase.AddObjectToAsset(transitionOff, controller);
 
-    }
+			AssetDatabase.AddObjectToAsset(stateOn, controller);
+			AssetDatabase.AddObjectToAsset(stateOff, controller);
+
+			AssetDatabase.AddObjectToAsset(controller.layers[i].stateMachine, controller);
+
+			//not sure if this is neccesary but here it is
+			AssetDatabase.SaveAssets();
+			AssetDatabase.ImportAsset(AssetDatabase.GetAssetPath(controller));
+
+		}
+
+	}
 
 }
 
 //well its a right shame C# doesnt support static extension methods. This'd come in right handy...
 public static class EFile
 {
-    public static bool DeleteIfExists(string path)
-    {
-        if(File.Exists(path))
-        {
-            File.Delete(path);
-            return true;
-        }
-        return false;
-    }
+	public static bool DeleteIfExists(string path)
+	{
+		if (File.Exists(path))
+		{
+			File.Delete(path);
+			return true;
+		}
+		return false;
+	}
 }
 #endif
