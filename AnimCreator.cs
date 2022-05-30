@@ -12,8 +12,10 @@ public class AnimCreator : EditorWindow
 	GameObject _parent;
 	AnimatorController _existingAnimator;
 
+	UnityEngine.Object _testobj;
+
 	int _animationsIndex = 0, _previousAnimationsIndex = 0;
-	bool _foldoutStatus = true, _defaultAnimationType = false, _useExistingAnimator = false;
+	bool _foldoutStatus = true, _defaultAnimationType = false, _useExistingAnimator = true;
 
 	string _path = "Assets/Main/Generated Animations/";
 
@@ -23,6 +25,7 @@ public class AnimCreator : EditorWindow
 	struct AnimationMetadata { public string name; public AnimationClip clip; }
 	List<AnimationPair> _animationPairList = new List<AnimationPair>();
 
+	bool _debugMode = true;
 
 	[MenuItem("Tools/Arsenicu/AnimCreator")]
 	static void Init()
@@ -34,8 +37,8 @@ public class AnimCreator : EditorWindow
 	void OnGUI()
 	{
 		//haha lol lmao xd
-#pragma warning disable CS0618
-#pragma warning disable CS0168
+		#pragma warning disable CS0618
+		#pragma warning disable CS0168
 
 		GUILayout.Label("Parent is the GameObject with the animator.");
 
@@ -72,6 +75,8 @@ public class AnimCreator : EditorWindow
 		_useExistingAnimator = EditorGUILayout.Toggle(new GUIContent("Use Existing Animator?", "Adds new animations/layer to given Animator."), _useExistingAnimator);
 		if (_useExistingAnimator)
 			_existingAnimator = (AnimatorController)EditorGUILayout.ObjectField(new GUIContent("Animator: ", "Enter existing Animator here."), _existingAnimator, typeof(AnimatorController));
+
+		_testobj = (UnityEngine.Object)EditorGUILayout.ObjectField(new GUIContent("Test Asset: "), _testobj, typeof(UnityEngine.Object));
 
 		//amount of animated children
 		_animationsIndex = EditorGUILayout.IntField(new GUIContent("Amount:", "Amount of objects to generate animations for."), _animationsIndex);
@@ -119,7 +124,10 @@ public class AnimCreator : EditorWindow
 
 		EditorGUILayout.EndFoldoutHeaderGroup();
 
-		_defaultAnimationType = EditorGUILayout.Toggle(new GUIContent("Default animation On?", "On=Visible Off=Invisible by default"), _defaultAnimationType);
+		_defaultAnimationType = EditorGUILayout.Toggle(new GUIContent("Default animation On?", "On=Visible by default, Off=Invisible by default"), _defaultAnimationType);
+
+		if(_debugMode)
+			goto bruh;
 
 		if (GUILayout.Button("Animate!"))
 		{
@@ -136,6 +144,14 @@ public class AnimCreator : EditorWindow
 			}
 			CreateAnimator();
 		}
+
+		bruh:
+
+		if(GUILayout.Button("Debug!"))
+		{
+			DebugStuff();
+		}
+
 	}
 
 	void Animate(GameObject _animated)
@@ -311,6 +327,18 @@ public class AnimCreator : EditorWindow
 			AssetDatabase.ImportAsset(AssetDatabase.GetAssetPath(controller));
 
 		}
+
+	}
+
+	void DebugStuff()
+	{
+		if(_testobj == null)
+		{
+			Debug.Log("Lol null");
+			return;
+		}
+		Debug.Log(AssetDatabase.GetAssetPath(_testobj) + " |||| " + Application.dataPath);
+
 
 	}
 
