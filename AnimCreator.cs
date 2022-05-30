@@ -1,4 +1,4 @@
-﻿#if UNITY_EDITOR
+﻿#if UNITY_EDITOR //haha lol 
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
@@ -12,7 +12,7 @@ public class AnimCreator : EditorWindow
 	GameObject _parent;
 	AnimatorController _existingAnimator;
 
-	UnityEngine.Object _testobj;
+	UnityEngine.Object _parameterAsset;
 
 	int _animationsIndex = 0, _previousAnimationsIndex = 0;
 	bool _foldoutStatus = true, _defaultAnimationType = false, _useExistingAnimator = true;
@@ -24,8 +24,8 @@ public class AnimCreator : EditorWindow
 	struct AnimationPair { public AnimationMetadata On; public AnimationMetadata Off; }
 	struct AnimationMetadata { public string name; public AnimationClip clip; }
 	List<AnimationPair> _animationPairList = new List<AnimationPair>();
+	AnimationPair[] pairs;
 
-	bool _debugMode = true;
 
 	[MenuItem("Tools/Arsenicu/AnimCreator")]
 	static void Init()
@@ -76,7 +76,7 @@ public class AnimCreator : EditorWindow
 		if (_useExistingAnimator)
 			_existingAnimator = (AnimatorController)EditorGUILayout.ObjectField(new GUIContent("Animator: ", "Enter existing Animator here."), _existingAnimator, typeof(AnimatorController));
 
-		_testobj = (UnityEngine.Object)EditorGUILayout.ObjectField(new GUIContent("Test Asset: "), _testobj, typeof(UnityEngine.Object));
+		_parameterAsset = (UnityEngine.Object)EditorGUILayout.ObjectField(new GUIContent("VRCParameters Asset: ", "Can be either fresh or with pre-existing parameters. Please just put in the right asset and dont try to break it I dont have the life force left to try validate fucking YAML"), _parameterAsset, typeof(UnityEngine.Object));
 
 		//amount of animated children
 		_animationsIndex = EditorGUILayout.IntField(new GUIContent("Amount:", "Amount of objects to generate animations for."), _animationsIndex);
@@ -126,13 +126,11 @@ public class AnimCreator : EditorWindow
 
 		_defaultAnimationType = EditorGUILayout.Toggle(new GUIContent("Default animation On?", "On=Visible by default, Off=Invisible by default"), _defaultAnimationType);
 
-		if(_debugMode)
-			goto bruh;
 
 		if (GUILayout.Button("Animate!"))
 		{
 			//Checking if the file path exists, creating a default if none present
-			if (!AssetDatabase.IsValidFolder(_path))
+			if (!AssetDatabase.IsValidFolder(_path.Remove(_path.Length -1, 1))) //lol get trolled
 			{
 				EditorUtility.DisplayDialog("Uh oh! Stinky!", string.Format("No valid file path set!\nPath: {0}\nCreating a default directory for you!", _path), "ok");
 				Directory.CreateDirectory(_path);
@@ -143,13 +141,6 @@ public class AnimCreator : EditorWindow
 				Animate(animationComponents[i]);
 			}
 			CreateAnimator();
-		}
-
-		bruh:
-
-		if(GUILayout.Button("Debug!"))
-		{
-			DebugStuff();
 		}
 
 	}
@@ -254,7 +245,7 @@ public class AnimCreator : EditorWindow
 		//2. add layer for each pair
 		//3. set up statemachines & transitions for each pair
 
-		AnimationPair[] pairs = _animationPairList.ToArray();
+		pairs = _animationPairList.ToArray();
 
 		//check if the animator is new or not - used for accounting for pre-exisitng layer indexes
 		int offset = 1;
@@ -328,18 +319,76 @@ public class AnimCreator : EditorWindow
 
 		}
 
+		VRChatAssetEdit();
 	}
 
-	void DebugStuff()
+	void VRChatAssetEdit()
 	{
-		if(_testobj == null)
+		//return if the object is null
+		if(_parameterAsset == null)
 		{
 			Debug.Log("Lol null");
 			return;
 		}
-		Debug.Log(AssetDatabase.GetAssetPath(_testobj) + " |||| " + Application.dataPath);
+
+		//okay so for this we're going to be using System.IO 
+		// - purely because I cant figure out the unity way of writing directly to a file
+		string[] _ = Application.dataPath.Split('/');
+
+		string fullDataPath = "";
+
+		for (int i = 0; i < _.Length - 1; i++)
+		{
+			//le funny discard
+			fullDataPath += _[i] + "/";
+		}
+
+		fullDataPath += AssetDatabase.GetAssetPath(_parameterAsset);
+
+		//fullDataPath is the actual filesystem path to the asset.
+		Debug.Log(fullDataPath);
+
+		string fileContents = "";
+
+		//which we use to get the file contents using System.IO!
+		using (StreamReader sr = new StreamReader(fullDataPath))
+		{
+			fileContents = sr.ReadToEnd();
+		}
+
+		//okay, we now have the file contents as a string. It is formatted as YAML - I know nothing about YAML...
+		//hot take: since we're only ever adding parameters, why dont we just stick it on the end of the file without parsing the YAMl at all?? Based
+		
+		for(int i = 0; i < pairs.Length; i++)
+		{
+			//I really like my little stringbuilders. Look at them go, theyre great
+			StringBuilder sb = new StringBuilder();
+
+			//ayy lmao
+			string tab = "  ";
+			//...why am I memeing so hard today with my code
 
 
+			sb.Append(tab + "- name: " + pairs[i].On.name + "\n");
+			sb.AppendLine(tab + tab + "valueType: 2"); //bool
+			sb.AppendLine(tab + tab + "saved: 1"); //save by default
+			//my GOD I love this notation - its so unintuitive and unreadable but its so gooood
+			sb.AppendLine(tab + tab + "defaultValue:" + (_defaultAnimationType ? "1" : "0"));
+
+			fileContents += sb.ToString();
+		}
+
+		//wonder if this will kill unity uwu
+		using(StreamWriter sr = new StreamWriter(fullDataPath))
+		{
+			//look ma, no metadata!
+			sr.Write(fileContents);
+		}
+
+		AssetDatabase.Refresh();
+
+		//this codebase is getting messier and messier. Fun fact, I wrote this entire method without 
+		//t̶h̶e̶ ̶w̶i̶l̶l̶ ̶t̶o̶ ̶l̶i̶v̶e̶ I mean without IntelliSense because it doesnt load in for Unity projects
 	}
 
 }
